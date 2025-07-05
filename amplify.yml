@@ -23,3 +23,4 @@ frontend:
     paths:
       - node_modules/**/*     # Cache de dependencias
       - ~/.npm/**/*           # Cache global de npm
+
