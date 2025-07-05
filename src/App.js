@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import "@aws-amplify/ui-react/styles.css";
-import { generateClient } from "aws-amplify/api"; // Nuevo cliente
 import {
   Button,
   Flex,
@@ -12,13 +11,15 @@ import {
   View,
   withAuthenticator,
 } from "@aws-amplify/ui-react";
+import { generateClient } from "aws-amplify/api";
+import { getUrl, uploadData, remove } from "aws-amplify/storage"; // ✅ Nuevas funciones
 import { listNotes } from "./graphql/queries";
 import {
   createNote as createNoteMutation,
   deleteNote as deleteNoteMutation,
 } from "./graphql/mutations";
 
-// Crear cliente
+// Cliente de API GraphQL
 const client = generateClient();
 
 const App = ({ signOut }) => {
@@ -29,12 +30,13 @@ const App = ({ signOut }) => {
   }, []);
 
   async function fetchNotes() {
-    const apiData = await API.graphql({ query: listNotes });
+    const apiData = await client.graphql({ query: listNotes });
     const notesFromAPI = apiData.data.listNotes.items;
+
     await Promise.all(
       notesFromAPI.map(async (note) => {
         if (note.image) {
-          const url = await Storage.get(note.name);
+          const { url } = await getUrl({ key: note.name }); // ✅ getUrl
           note.image = url;
         }
         return note;
@@ -50,10 +52,12 @@ const App = ({ signOut }) => {
     const data = {
       name: form.get("name"),
       description: form.get("description"),
-      image: image.name,
+      image: image?.name || "",
     };
-    if (!!data.image) await Storage.put(data.name, image);
-    await API.graphql({
+    if (image?.name) {
+      await uploadData({ key: data.name, data: image }).result; // ✅ uploadData
+    }
+    await client.graphql({
       query: createNoteMutation,
       variables: { input: data },
     });
@@ -64,8 +68,10 @@ const App = ({ signOut }) => {
   async function deleteNote({ id, name }) {
     const newNotes = notes.filter((note) => note.id !== id);
     setNotes(newNotes);
-    await Storage.remove(name);
-    await API.graphql({
+    if (name) {
+      await remove({ key: name }); // ✅ remove
+    }
+    await client.graphql({
       query: deleteNoteMutation,
       variables: { input: { id } },
     });
@@ -74,8 +80,9 @@ const App = ({ signOut }) => {
   return (
     <View className="App">
       <Heading level={1}>My Notes App</Heading>
+
       <View as="form" margin="3rem 0" onSubmit={createNote}>
-        <Flex direction="row" justifyContent="center">
+        <Flex direction="row" justifyContent="center" alignItems="center" gap="1rem">
           <TextField
             name="name"
             placeholder="Note Name"
@@ -92,11 +99,13 @@ const App = ({ signOut }) => {
             variation="quiet"
             required
           />
+          <View name="image" as="input" type="file" />
           <Button type="submit" variation="primary">
             Create Note
           </Button>
         </Flex>
       </View>
+
       <Heading level={2}>Current Notes</Heading>
       <View margin="3rem 0">
         {notes.map((note) => (
@@ -105,31 +114,20 @@ const App = ({ signOut }) => {
             direction="row"
             justifyContent="center"
             alignItems="center"
+            gap="1rem"
           >
-            <Text as="strong" fontWeight={700}>
-              {note.name}
-            </Text>
-            <Text as="span">{note.description}</Text>
+            <Text as="strong">{note.name}</Text>
+            <Text>{note.description}</Text>
             {note.image && (
-              <Image
-                src={note.image}
-                alt={`visual aid for ${notes.name}`}
-                style={{ width: 400 }}
-              />
+              <Image src={note.image} alt={`Image for ${note.name}`} width="200px" />
             )}
             <Button variation="link" onClick={() => deleteNote(note)}>
-              Delete note
+              Delete Note
             </Button>
           </Flex>
         ))}
-
       </View>
-      <View
-        name="image"
-        as="input"
-        type="file"
-        style={{ alignSelf: "end" }}
-      />
+
       <Button onClick={signOut}>Sign Out</Button>
     </View>
   );
