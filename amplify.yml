@@ -1,9 +1,10 @@
 version: 1
 backend:
   phases:
-    build:
+    preBuild:
       commands:
-        - amplifyPush --simple
+        - npm install -g @aws-amplify/cli
+        - amplify pull --appId d17i5dnnaoe22c --envName main --yes
 frontend:
   phases:
     preBuild:
