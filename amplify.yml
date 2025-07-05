@@ -3,16 +3,15 @@ backend:
   phases:
     build:
       commands:
-        - '# Execute Amplify CLI with the helper script'
         - amplifyPush --simple
 frontend:
   phases:
     preBuild:
       commands:
-        - yarn install
+        - npm ci
     build:
       commands:
-        - yarn run build
+        - npm run build
   artifacts:
     baseDirectory: build
     files:
